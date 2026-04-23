@@ -1,0 +1,14 @@
+[package]
+name = "pcb_router"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[[bin]]
+name = "pcb_router"
+path = "src/main.rs"
+
+[lib]
+name = "pcb_router_lib"
+path = "src/lib.rs"
