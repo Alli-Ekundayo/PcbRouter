@@ -1,41 +1,46 @@
 # PcbRouter
 
-Printed Circuit Board (PCB) router
+Printed Circuit Board (PCB) router — implemented in Rust.
 
-### Prerequisites
+Supports the `.kicad_pcb` format (KiCad v5.1.2+).
 
-- GCC >=4.8
-- G++ >= 4.8
-- SWIG >= 2.0
-- Boost >= 1.6
-- CMake >= 3.1
-- Current support for .kicad_pcb format derived from KiCad v5.1.2
+## Prerequisites
 
-### Installing
+- [Rust](https://www.rust-lang.org/tools/install) (edition 2021, any recent stable toolchain)
 
-Clone
+## Building
+
 ```
-git clone --recurse-submodules https://github.com/The-OpenROAD-Project/PcbRouter.git
+cd pcb_router_rs
+cargo build --release
 ```
 
-Build
+The compiled binary is placed at `pcb_router_rs/target/release/pcb_router`.
+
+## Running
+
 ```
-mkdir build
-cd build
-cmake ..
-make
+pcb_router_rs/target/release/pcb_router <input.kicad_pcb> [grid_scale] [num_iterations] [enlarge_boundary] [layer_change_weight] [track_obstacle_weight]
 ```
 
-Run
-```
-mkdir output
-./bin/pcbrouter [input_filename].kicad_pcb 
-```
+| Argument | Description | Default |
+|---|---|---|
+| `input.kicad_pcb` | Input KiCad PCB file (required) | — |
+| `grid_scale` | Grid resolution scale factor | 1.0 |
+| `num_iterations` | Number of rip-up/reroute iterations | (see `GlobalParam`) |
+| `enlarge_boundary` | Board boundary enlargement | (see `GlobalParam`) |
+| `layer_change_weight` | Cost penalty for layer changes (vias) | (see `GlobalParam`) |
+| `track_obstacle_weight` | Cost penalty for traces near obstacles | (see `GlobalParam`) |
 
-Output
+After routing, statistics (wirelength, via count, bend count) are printed to stdout.
+
+## Testing
+
 ```
-Routing results are in the output/ folder
+cd pcb_router_rs
+cargo test
 ```
 
 ## License
-  * BSD-3-clause License [[Link]](LICENSE)
+
+- BSD-3-clause License [[Link]](LICENSE)
