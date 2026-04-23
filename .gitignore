@@ -73,3 +73,4 @@ fp-info-cache
 *.exe
 *.out
 *.app
+target/
