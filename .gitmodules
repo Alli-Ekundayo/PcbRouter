@@ -1,3 +1,0 @@
-[submodule "kicadPcb"]
-	path = module/kicadPcb
-	url = https://github.com/The-OpenROAD-Project/KicadParser.git
