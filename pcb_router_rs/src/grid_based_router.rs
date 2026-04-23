@@ -11,23 +11,23 @@ use crate::util::Point2D;
 /// High-level router – mirrors the C++ `GridBasedRouter`.
 pub struct GridBasedRouter {
     pub params: GlobalParam,
-    board_grid: BoardGrid,
+    pub board_grid: BoardGrid,
 
     /// Maps grid-layer index → layer name.
-    grid_layer_to_name: Vec<String>,
+    pub grid_layer_to_name: Vec<String>,
     /// Maps layer name → grid-layer index.
-    layer_name_to_grid_layer: HashMap<String, usize>,
+    pub layer_name_to_grid_layer: HashMap<String, usize>,
 
     /// All nets converted to grid space.
-    grid_nets: Vec<MultipinRoute>,
-    best_solution: Vec<MultipinRoute>,
-    best_total_route_cost: f64,
+    pub grid_nets: Vec<MultipinRoute>,
+    pub best_solution: Vec<MultipinRoute>,
+    pub best_total_route_cost: f64,
 
     // Board extent (in DB units)
-    min_x: f64,
-    max_x: f64,
-    min_y: f64,
-    max_y: f64,
+    pub min_x: f64,
+    pub max_x: f64,
+    pub min_y: f64,
+    pub max_y: f64,
 }
 
 impl GridBasedRouter {

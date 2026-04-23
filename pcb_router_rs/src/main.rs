@@ -4,6 +4,7 @@ use std::fs::File;
 use pcb_router_lib::global_param::GlobalParam;
 use pcb_router_lib::grid_based_router::GridBasedRouter;
 use pcb_router_lib::kicad_parser::KicadPcbDatabase;
+use pcb_router_lib::location::Location;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -63,4 +64,57 @@ fn main() {
         router.get_routed_num_vias(),
         router.get_routed_num_bends(),
     );
+
+    println!("--- ROUTING DATA START ---");
+    for net in &router.best_solution {
+        for path in &net.grid_paths {
+            let pts: Vec<Location> = path.segments.iter().cloned().collect();
+            if pts.is_empty() {
+                continue;
+            }
+            let mut prev_loc = pts[0];
+            for &loc in &pts {
+                if loc == prev_loc {
+                    continue;
+                }
+                if loc.z() != prev_loc.z() {
+                    // Via
+                    let x = (loc.x() as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    let y = (loc.y() as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    
+                    // Try to get netclass info
+                    let (via_dia, via_drill) = if net.grid_netclass_id >= 0 {
+                        if let Some(nc) = router.board_grid.grid_netclasses.get(net.grid_netclass_id as usize) {
+                            (nc.via_dia as f64 / router.params.input_scale as f64, nc.via_drill as f64 / router.params.input_scale as f64)
+                        } else {
+                            (0.8, 0.4)
+                        }
+                    } else {
+                        (0.8, 0.4)
+                    };
+                    println!("VIA {} {} {} {} {} {}", net.net_id, x, y, loc.z(), via_dia, via_drill);
+                } else {
+                    // Segment
+                    let x1 = (prev_loc.x() as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    let y1 = (prev_loc.y() as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    let x2 = (loc.x() as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    let y2 = (loc.y() as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                    let layer_name = router.grid_layer_to_name.get(loc.z() as usize).map(|s| s.as_str()).unwrap_or("Unknown");
+                    
+                    let width = if net.grid_netclass_id >= 0 {
+                        if let Some(nc) = router.board_grid.grid_netclasses.get(net.grid_netclass_id as usize) {
+                            nc.trace_width as f64 / router.params.input_scale as f64
+                        } else {
+                            0.25
+                        }
+                    } else {
+                        0.25
+                    };
+                    println!("SEGMENT {} {} {} {} {} {} {}", net.net_id, layer_name, x1, y1, x2, y2, width);
+                }
+                prev_loc = loc;
+            }
+        }
+    }
+    println!("--- ROUTING DATA END ---");
 }
