@@ -52,6 +52,8 @@ impl KicadPcbDatabase {
 
     /// Internal helper to parse from a string with legacy support.
     fn from_string(content: &str) -> io::Result<Self> {
+        let (parsed_netclasses, net_to_netclass) = parse_legacy_netclasses(content);
+
         // KiCad 5 uses '(module ...)', while KiCad 6+ (and kiutils-rs) use '(footprint ...)'
         // We do a simple replacement to bridge the gap.
         let converted = content.replace("(module ", "(footprint ");
@@ -71,6 +73,16 @@ impl KicadPcbDatabase {
         
         let mut db = KicadPcbDatabase::default();
         db.load_from_ast(doc.ast());
+        if !parsed_netclasses.is_empty() {
+            db.netclasses = parsed_netclasses;
+        }
+        if !net_to_netclass.is_empty() {
+            for net in &mut db.nets {
+                if let Some(name) = net_to_netclass.get(&net.name) {
+                    net.netclass_name = name.clone();
+                }
+            }
+        }
         db.doc = Some(doc);
         Ok(db)
     }
@@ -135,8 +147,14 @@ impl KicadPcbDatabase {
 
             for pad in &fp.pads {
                 let pad_pos = pad.at.unwrap_or([0.0, 0.0]);
-                // Simplified absolute position (ignoring rotation for legacy parity)
-                let abs_pad_pos = (pos[0] + pad_pos[0], pos[1] + pad_pos[1]);
+                // Absolute position including footprint rotation.
+                let rot_rad = rot.to_radians();
+                let cos_r = rot_rad.cos();
+                let sin_r = rot_rad.sin();
+                let abs_pad_pos = (
+                    pos[0] + (pad_pos[0] * cos_r - pad_pos[1] * sin_r),
+                    pos[1] + (pad_pos[0] * sin_r + pad_pos[1] * cos_r),
+                );
 
                 self.pads.push(Pad {
                     reference: ref_name.clone(),
@@ -152,6 +170,120 @@ impl KicadPcbDatabase {
                     layers: pad.layers.clone(),
                     instance_position: (pos[0], pos[1]),
                 });
+            }
+        }
+
+        fn parse_legacy_netclasses(content: &str) -> (Vec<Netclass>, HashMap<String, String>) {
+            let mut netclasses = Vec::new();
+            let mut net_to_netclass = HashMap::new();
+            let lines: Vec<&str> = content.lines().collect();
+            let mut i = 0usize;
+
+            while i < lines.len() {
+                let line = lines[i].trim();
+                if !line.starts_with("(net_class ") {
+                    i += 1;
+                    continue;
+                }
+
+                let Some(name) = parse_quoted_or_token_after_prefix(line, "(net_class") else {
+                    i += 1;
+                    continue;
+                };
+
+                let mut nc = Netclass {
+                    name: name.clone(),
+                    ..Netclass::default()
+                };
+
+                let mut depth = line.matches('(').count() as i32 - line.matches(')').count() as i32;
+                i += 1;
+
+                while i < lines.len() && depth > 0 {
+                    let cur = lines[i].trim();
+
+                    if cur.starts_with("(clearance") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(clearance") {
+                            nc.clearance = v;
+                        }
+                    } else if cur.starts_with("(trace_width") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(trace_width") {
+                            nc.trace_width = v;
+                        }
+                    } else if cur.starts_with("(via_dia") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(via_dia") {
+                            nc.via_dia = v;
+                        }
+                    } else if cur.starts_with("(via_drill") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(via_drill") {
+                            nc.via_drill = v;
+                        }
+                    } else if cur.starts_with("(uvia_dia") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(uvia_dia") {
+                            nc.uvia_dia = v;
+                        }
+                    } else if cur.starts_with("(uvia_drill") {
+                        if let Some(v) = parse_f64_after_prefix(cur, "(uvia_drill") {
+                            nc.uvia_drill = v;
+                        }
+                    } else if cur.starts_with("(add_net") {
+                        if let Some(net_name) = parse_quoted_or_token_after_prefix(cur, "(add_net") {
+                            net_to_netclass.insert(net_name, nc.name.clone());
+                        }
+                    }
+
+                    depth += cur.matches('(').count() as i32 - cur.matches(')').count() as i32;
+                    i += 1;
+                }
+
+                netclasses.push(nc);
+            }
+
+            (netclasses, net_to_netclass)
+        }
+
+        fn parse_quoted_or_token_after_prefix(line: &str, prefix: &str) -> Option<String> {
+            let rest = line.strip_prefix(prefix)?.trim_start();
+            if let Some(stripped) = rest.strip_prefix('"') {
+                let end = stripped.find('"')?;
+                return Some(stripped[..end].to_string());
+            }
+            let token = rest
+                .split([' ', '\t', ')'])
+                .find(|s| !s.is_empty())?;
+            Some(token.to_string())
+        }
+
+        fn parse_f64_after_prefix(line: &str, prefix: &str) -> Option<f64> {
+            let rest = line.strip_prefix(prefix)?.trim_start();
+            let token = rest
+                .split([' ', '\t', ')'])
+                .find(|s| !s.is_empty())?;
+            token.parse::<f64>().ok()
+        }
+
+        #[cfg(test)]
+        mod tests {
+            use super::parse_legacy_netclasses;
+
+            #[test]
+            fn parse_kicad5_netclass_block() {
+                let content = r#"
+        (net_class "Default" "Default net class."
+          (clearance 0.2)
+          (trace_width 0.25)
+          (via_dia 0.8)
+          (via_drill 0.4)
+          (uvia_dia 0.3)
+          (uvia_drill 0.1)
+          (add_net "GND")
+        )
+        "#;
+                let (netclasses, net_map) = parse_legacy_netclasses(content);
+                assert_eq!(netclasses.len(), 1);
+                assert_eq!(netclasses[0].name, "Default");
+                assert!((netclasses[0].trace_width - 0.25).abs() < 1e-9);
+                assert_eq!(net_map.get("GND").map(String::as_str), Some("Default"));
             }
         }
     }
