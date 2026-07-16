@@ -18,7 +18,6 @@ pub struct BoardGrid {
     cells: Vec<GridCell>,
     pub grid_netclasses: Vec<GridNetclass>,
     current_grid_netclass_id: usize,
-    current_targeted_pin: Location,
     current_targeted_pin_with_layers: Vec<Location>,
 }
 
@@ -31,7 +30,6 @@ impl BoardGrid {
             cells: Vec::new(),
             grid_netclasses: Vec::new(),
             current_grid_netclass_id: 0,
-            current_targeted_pin: Location::default(),
             current_targeted_pin_with_layers: Vec::new(),
         }
     }
@@ -253,9 +251,7 @@ impl BoardGrid {
 
         for pin_idx in 1..num_pins {
             // Set the target
-            let target_locations: Vec<Location> = route.grid_pins[pin_idx]
-                .pin_with_layers
-                .clone();
+            let target_locations: Vec<Location> = route.grid_pins[pin_idx].pin_with_layers.clone();
             self.current_targeted_pin_with_layers = target_locations.clone();
             self.set_targeted_pins(&target_locations);
 
@@ -418,7 +414,7 @@ impl BoardGrid {
         params: &GlobalParam,
     ) -> Vec<(f32, Location)> {
         let nc = &self.grid_netclasses[self.current_grid_netclass_id];
-        let trace_grids = nc.trace_searching_space_to_grids.clone();
+        let trace_grids = &nc.trace_searching_space_to_grids;
 
         let mut ns = Vec::with_capacity(10);
 
@@ -440,7 +436,7 @@ impl BoardGrid {
 
             let cached = self.cached_trace_cost_at(&next);
             let obstacle_cost = if cached < 0.0 {
-                let c = self.sized_trace_cost_at(&next, &trace_grids);
+                let c = self.sized_trace_cost_at(&next, trace_grids);
                 // We don't mutate here to keep &self; callers should pre-cache
                 c
             } else {
@@ -451,13 +447,13 @@ impl BoardGrid {
 
         // Via moves (layer changes at same xy)
         if params.allow_via_for_routing {
-            let via_grids = nc.via_searching_space_to_grids.clone();
+            let via_grids = &nc.via_searching_space_to_grids;
             for dz in [-1_i32, 1_i32] {
                 let next = Location::new(l.m_x, l.m_y, l.m_z + dz);
                 if !self.validate_location(&next) { continue; }
                 if self.is_via_forbidden(&next) { continue; }
                 let via_cost = params.via_insertion_cost as f32
-                    + self.sized_trace_cost_at(&next, &via_grids);
+                    + self.sized_trace_cost_at(&next, via_grids);
                 ns.push((via_cost, next));
             }
         }
@@ -494,6 +490,7 @@ impl BoardGrid {
                 self.base_cost_add_shape(trace_cost, loc, &trace_shape);
             }
         }
+        self.cached_trace_cost_fill(-1.0);
     }
 
     /// Rip-up a route (remove its base-cost contribution).

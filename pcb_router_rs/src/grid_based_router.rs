@@ -202,11 +202,26 @@ impl GridBasedRouter {
             }
         }
 
+        let db_netclass_name_to_id: HashMap<&str, i32> = db
+            .netclasses
+            .iter()
+            .enumerate()
+            .map(|(idx, nc)| (nc.name.as_str(), idx as i32))
+            .collect();
+
+        let mut net_to_netclass_id: HashMap<i32, i32> = HashMap::new();
+        for net in &db.nets {
+            if let Some(id) = db_netclass_name_to_id.get(net.netclass_name.as_str()) {
+                net_to_netclass_id.insert(net.id, *id);
+            }
+        }
+
         let s = self.params.input_scale as f64;
         for (net_id, pads) in &net_to_pins {
+            let route_netclass_id = *net_to_netclass_id.get(net_id).unwrap_or(&0);
             let mut route = MultipinRoute::with_layers(
                 *net_id,
-                0,
+                route_netclass_id,
                 self.grid_layer_to_name.len(),
             );
             for pad in pads {
