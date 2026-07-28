@@ -38,7 +38,7 @@ impl BoardGrid {
         self.w = w;
         self.h = h;
         self.l = l;
-        let size = (w * h * l) as usize;
+        let size = (w as i64 * h as i64 * l as i64) as usize;
         self.cells = vec![GridCell::new(); size];
         self.base_cost_fill(0.0);
     }
@@ -47,7 +47,7 @@ impl BoardGrid {
         self.grid_netclasses.push(nc);
     }
 
-    pub fn get_grid_netclass(&self, id: usize) -> &GridNetclass {
+    pub fn grid_netclass(&self, id: usize) -> &GridNetclass {
         &self.grid_netclasses[id]
     }
 
@@ -55,22 +55,24 @@ impl BoardGrid {
 
     #[inline]
     pub fn location_to_id(&self, l: &Location) -> usize {
-        (l.m_x + l.m_y * self.w + l.m_z * self.w * self.h) as usize
+        (l.x as i64 + l.y as i64 * self.w as i64 + l.z as i64 * self.w as i64 * self.h as i64) as usize
     }
 
     pub fn id_to_location(&self, id: usize) -> Location {
-        let z = id as i32 / (self.w * self.h);
-        let rem = id as i32 - z * self.w * self.h;
-        let y = rem / self.w;
-        let x = rem % self.w;
+        let id = id as i64;
+        let wh = self.w as i64 * self.h as i64;
+        let z = (id / wh) as i32;
+        let rem = id % wh;
+        let y = (rem / self.w as i64) as i32;
+        let x = (rem % self.w as i64) as i32;
         Location::new(x, y, z)
     }
 
     #[inline]
     pub fn validate_location(&self, l: &Location) -> bool {
-        l.m_x >= 0 && l.m_x < self.w
-            && l.m_y >= 0 && l.m_y < self.h
-            && l.m_z >= 0 && l.m_z < self.l
+        l.x >= 0 && l.x < self.w
+            && l.y >= 0 && l.y < self.h
+            && l.z >= 0 && l.z < self.l
     }
 
     // ── base cost ────────────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ impl BoardGrid {
 
     pub fn base_cost_add_shape(&mut self, value: f32, l: &Location, shape: &[Point2D]) {
         for rel in shape {
-            let loc = Location::new(l.m_x + rel.x, l.m_y + rel.y, l.m_z);
+            let loc = Location::new(l.x + rel.x, l.y + rel.y, l.z);
             if self.validate_location(&loc) {
                 let id = self.location_to_id(&loc);
                 self.cells[id].base_cost += value;
@@ -208,7 +210,7 @@ impl BoardGrid {
     fn sized_trace_cost_at(&self, l: &Location, search_grids: &[Point2D]) -> f32 {
         let mut cost = 0.0_f32;
         for rel in search_grids {
-            let loc = Location::new(l.m_x + rel.x, l.m_y + rel.y, l.m_z);
+            let loc = Location::new(l.x + rel.x, l.y + rel.y, l.z);
             if self.validate_location(&loc) {
                 cost += self.base_cost_at(&loc);
             }
@@ -225,7 +227,7 @@ impl BoardGrid {
         if to_base_cost {
             for loc in &grid_pin.pin_with_layers {
                 for rel in &grid_pin.pin_shape_to_grids {
-                    let target = Location::new(loc.m_x + rel.x, loc.m_y + rel.y, loc.m_z);
+                    let target = Location::new(loc.x + rel.x, loc.y + rel.y, loc.z);
                     if self.validate_location(&target) {
                         self.base_cost_add(value, &target);
                     }
@@ -350,8 +352,8 @@ impl BoardGrid {
     fn get_a_star_estimated_cost(&self, l: &Location, params: &GlobalParam) -> f32 {
         let mut cost = f32::INFINITY;
         for target in &self.current_targeted_pin_with_layers {
-            let dx = (l.m_x - target.m_x).abs() as f32;
-            let dy = (l.m_y - target.m_y).abs() as f32;
+            let dx = (l.x - target.x).abs() as f32;
+            let dy = (l.y - target.y).abs() as f32;
             let min_d = dx.min(dy);
             let max_d = dx.max(dy);
             let c = params.diagonal_cost as f32 * min_d + (max_d - min_d);
@@ -372,10 +374,10 @@ impl BoardGrid {
 
         if prev_id != cur_id {
             let prev = self.id_to_location(prev_id as usize);
-            if prev.m_z == current.m_z
-                && current.m_z == next.m_z
-                && prev.m_x - current.m_x == current.m_x - next.m_x
-                && prev.m_y - current.m_y == current.m_y - next.m_y
+            if prev.z == current.z
+                && current.z == next.z
+                && prev.x - current.x == current.x - next.x
+                && prev.y - current.y == current.y - next.y
             {
                 bending_penalty += 0.5;
             }
@@ -394,10 +396,10 @@ impl BoardGrid {
 
         if prev_id != cur_id {
             let prev = self.id_to_location(prev_id as usize);
-            if prev.m_z == current.m_z
-                && current.m_z == next.m_z
-                && prev.m_x - current.m_x == current.m_x - next.m_x
-                && prev.m_y - current.m_y == current.m_y - next.m_y
+            if prev.z == current.z
+                && current.z == next.z
+                && prev.x - current.x == current.x - next.x
+                && prev.y - current.y == current.y - next.y
             {
                 return cur_cost; // same direction, no new bend
             }
@@ -431,7 +433,7 @@ impl BoardGrid {
         ];
 
         for &(dx, dy, base_cost) in deltas {
-            let next = Location::new(l.m_x + dx, l.m_y + dy, l.m_z);
+            let next = Location::new(l.x + dx, l.y + dy, l.z);
             if !self.validate_location(&next) { continue; }
 
             let cached = self.cached_trace_cost_at(&next);
@@ -449,7 +451,7 @@ impl BoardGrid {
         if params.allow_via_for_routing {
             let via_grids = &nc.via_searching_space_to_grids;
             for dz in [-1_i32, 1_i32] {
-                let next = Location::new(l.m_x, l.m_y, l.m_z + dz);
+                let next = Location::new(l.x, l.y, l.z + dz);
                 if !self.validate_location(&next) { continue; }
                 if self.is_via_forbidden(&next) { continue; }
                 let via_cost = params.via_insertion_cost as f32
@@ -462,17 +464,20 @@ impl BoardGrid {
     }
 
     /// Backtrack from `end` through `came_from_id` to build a `GridPath`.
+    /// Safety-bounded to prevent infinite loops on cyclic came_from_id chains.
     fn backtrack_to_grid_path(&self, end: &Location) -> GridPath {
         let mut path = GridPath::new();
         let mut current = *end;
+        let max_steps = self.cells.len(); // absolute upper bound
 
-        loop {
-            path.segments.push_front(current);
+        for _ in 0..max_steps {
+            path.segments.push(current);
             let id = self.came_from_id_at(&current) as usize;
             let prev = self.id_to_location(id);
             if prev == current { break; }
             current = prev;
         }
+        path.segments.reverse();
         path
     }
 
@@ -611,7 +616,7 @@ mod tests {
 
         // At least one path should have been found
         assert!(!route.grid_paths.is_empty(), "Should find a path");
-        let vias = route.get_routed_num_vias();
+        let vias = route.routed_num_vias();
         assert_eq!(vias, 0, "Same-layer route should have no vias");
     }
 

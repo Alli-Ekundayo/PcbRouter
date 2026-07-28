@@ -2,7 +2,9 @@ use crate::location::Location;
 use crate::util::{Point2D, Polygon};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum PinShape {
+    #[default]
     Rect,
     RoundRect,
     Circle,
@@ -10,9 +12,6 @@ pub enum PinShape {
     Trapezoid,
 }
 
-impl Default for PinShape {
-    fn default() -> Self { PinShape::Rect }
-}
 
 /// A single component pin mapped onto the routing grid.
 ///
@@ -52,7 +51,7 @@ impl GridPin {
     }
 
     pub fn is_pin_layer(&self, layer_id: i32) -> bool {
-        self.pin_with_layers.iter().any(|l| l.m_z == layer_id)
+        self.pin_with_layers.iter().any(|l| l.z == layer_id)
     }
 
     pub fn is_connected_to_pin(&self, l: &Location) -> bool {

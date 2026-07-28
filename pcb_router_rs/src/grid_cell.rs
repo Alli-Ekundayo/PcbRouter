@@ -1,5 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum GridCellType {
+    #[default]
     Vacant,
     Pad,
     Trace,
@@ -9,9 +11,6 @@ pub enum GridCellType {
     TargetPin,
 }
 
-impl Default for GridCellType {
-    fn default() -> Self { GridCellType::Vacant }
-}
 
 /// Single cell in the 3-D routing grid.
 #[derive(Debug, Clone, Default)]

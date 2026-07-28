@@ -1,76 +1,68 @@
-# swig files
-*pcbrouter-stamp/
+# Rust build artifacts
+target/
 
-# OSX system file
-.DS_Store
-
-# VS Code directory
+# IDE / editor files
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Binary, testcases and test output
-bin/
-lib/
-tmp/
-cases/
-build/
-output/
-log/
-PCBBenchmarks/
-test*/
-*.output
-*.plt
-*.dat
-*.py
-output.*
-*.log
-
-# CMake and make files
-Makefile
-CMakeCache.txt
-*.cmake
-CMakeFiles
-install_manifest.txt
-
-# SWIG machine code
-*_wrapper.cpp
+# OS files
+.DS_Store
+Thumbs.db
 
 # KiCad related
 fp-info-cache
 *.pro
+*.kicad_pcb-bak
+*.kicad_pcd-bak
+
+# Output artifacts from routing
+output/
+log/
+*_routed.kicad_pcb
+
+# Benchmark / test case data (not part of the repo)
+PCBBenchmarks/
+cases/
+
+# Temporary files
+tmp/
+*.output
+*.plt
+*.dat
 
 # Backup files
 *.bk
 
-# Prerequisites
-*.d
+# Old C++ build artifacts (leftover, safe to ignore)
+build/
+bin/
+lib/
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+install_manifest.txt
+Makefile
 
-# Compiled Object files
-*.slo
-*.lo
+# Compiled objects / libraries (C++ leftover, kept for safety)
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
 *.so
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
 *.a
 *.lib
-
-# Executables
 *.exe
 *.out
 *.app
-target/
+*.slo
+*.lo
+*.gch
+*.pch
+*.mod
+*.smod
+*.d
+*.log
+test*/

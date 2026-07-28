@@ -75,26 +75,26 @@ impl GridBasedRouter {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    pub fn get_routed_wirelength(&self) -> f64 {
+    pub fn routed_wirelength(&self) -> f64 {
         self.best_solution
             .iter()
-            .map(|r| r.get_routed_wirelength(self.params.grid_factor))
+            .map(|r| r.routed_wirelength(self.params.grid_factor))
             .sum()
     }
 
-    pub fn get_routed_num_vias(&self) -> i32 {
-        self.best_solution.iter().map(|r| r.get_routed_num_vias()).sum()
+    pub fn routed_num_vias(&self) -> i32 {
+        self.best_solution.iter().map(|r| r.routed_num_vias()).sum()
     }
 
-    pub fn get_routed_num_bends(&self) -> i32 {
-        self.best_solution.iter().map(|r| r.get_routed_num_bends()).sum()
+    pub fn routed_num_bends(&self) -> i32 {
+        self.best_solution.iter().map(|r| r.routed_num_bends()).sum()
     }
 
     // ── Initialisation ────────────────────────────────────────────────────────
 
     /// Set up layer mapping from a parsed KiCad database.
     pub fn setup_layer_mapping(&mut self, db: &KicadPcbDatabase) {
-        for layer in db.get_copper_layers() {
+        for layer in db.copper_layers() {
             let idx = self.grid_layer_to_name.len();
             self.layer_name_to_grid_layer.insert(layer.name.clone(), idx);
             self.grid_layer_to_name.push(layer.name.clone());
@@ -102,6 +102,7 @@ impl GridBasedRouter {
     }
 
     /// Set up a single grid netclass from a parsed netclass record.
+    #[allow(clippy::too_many_arguments)]
     pub fn setup_grid_netclass_from_db(
         &mut self,
         id: i32,
@@ -264,7 +265,7 @@ impl GridBasedRouter {
             let ripup = iter > 0;
             self.route_single_iteration(ripup);
 
-            let cost = self.get_overall_route_cost();
+            let cost = self.overall_route_cost();
             if self.best_total_route_cost < 0.0 || cost < self.best_total_route_cost {
                 self.best_total_route_cost = cost;
                 self.best_solution = self.grid_nets.clone();
@@ -277,22 +278,22 @@ impl GridBasedRouter {
         for i in 0..num_nets {
             if ripup_routed && !self.grid_nets[i].grid_paths.is_empty() {
                 let mut route = std::mem::take(&mut self.grid_nets[i]);
-                self.board_grid.ripup_route(&mut route, &self.params.clone());
+                self.board_grid.ripup_route(&mut route, &self.params);
                 self.grid_nets[i] = route;
             }
 
             let mut route = std::mem::take(&mut self.grid_nets[i]);
-            self.board_grid.route_grid_net_from_scratch(&mut route, &self.params.clone());
+            self.board_grid.route_grid_net_from_scratch(&mut route, &self.params);
             self.grid_nets[i] = route;
         }
         // Invalidate trace cost cache after each iteration
         self.board_grid.cached_trace_cost_fill(-1.0);
     }
 
-    fn get_overall_route_cost(&self) -> f64 {
+    fn overall_route_cost(&self) -> f64 {
         self.grid_nets.iter().map(|r| {
-            r.get_routed_wirelength(self.params.grid_factor)
-                + r.get_routed_num_vias() as f64 * self.params.via_insertion_cost
+            r.routed_wirelength(self.params.grid_factor)
+                + r.routed_num_vias() as f64 * self.params.via_insertion_cost
         }).sum()
     }
 }
@@ -308,6 +309,16 @@ pub fn rasterize_circle(radius: i32) -> Vec<Point2D> {
         }
     }
     pts
+}
+
+// Extension on KicadPcbDatabase for testing layer-mapping
+impl KicadPcbDatabase {
+    #[cfg(test)]
+    pub fn parse_test_layers(&mut self) {
+        use crate::kicad_parser::types::{Layer, LayerType};
+        self.layers.push(Layer { id: 0, name: "F.Cu".into(), layer_type: LayerType::Copper });
+        self.layers.push(Layer { id: 31, name: "B.Cu".into(), layer_type: LayerType::Copper });
+    }
 }
 
 #[cfg(test)]
@@ -362,7 +373,7 @@ mod tests {
         router.initialization(&db);
         router.route_all();
         // Should have found at least a partial route
-        let wl = router.get_routed_wirelength();
+        let wl = router.routed_wirelength();
         assert!(wl >= 0.0);
     }
 
@@ -409,15 +420,5 @@ mod tests {
             instance_position: (0.0, 0.0),
         });
         db
-    }
-}
-
-// Extension on KicadPcbDatabase for testing layer-mapping
-impl KicadPcbDatabase {
-    #[cfg(test)]
-    pub fn parse_test_layers(&mut self) {
-        use crate::kicad_parser::types::{Layer, LayerType};
-        self.layers.push(Layer { id: 0, name: "F.Cu".into(), layer_type: LayerType::Copper });
-        self.layers.push(Layer { id: 31, name: "B.Cu".into(), layer_type: LayerType::Copper });
     }
 }

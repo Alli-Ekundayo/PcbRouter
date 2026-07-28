@@ -5,6 +5,11 @@ use pcb_router_lib::grid_based_router::GridBasedRouter;
 use pcb_router_lib::kicad_parser::KicadPcbDatabase;
 use pcb_router_lib::location::Location;
 
+/// Default fallback dimensions (mm) when no netclass is assigned.
+const DEFAULT_TRACE_WIDTH_MM: f64 = 0.25;
+const DEFAULT_VIA_DIAMETER_MM: f64 = 0.8;
+const DEFAULT_VIA_DRILL_MM: f64 = 0.4;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -79,9 +84,9 @@ fn main() {
 
     println!(
         "Routed WL: {:.4}, # vias: {}, # bends: {}",
-        router.get_routed_wirelength(),
-        router.get_routed_num_vias(),
-        router.get_routed_num_bends(),
+        router.routed_wirelength(),
+        router.routed_num_vias(),
+        router.routed_num_bends(),
     );
 
     println!("Collecting results...");
@@ -101,12 +106,12 @@ fn main() {
              None
         };
         
-        let trace_width = nc.map(|n| n.trace_width as f64 / router.params.input_scale as f64).unwrap_or(0.25);
-        let via_dia = nc.map(|n| n.via_dia as f64 / router.params.input_scale as f64).unwrap_or(0.8);
-        let via_drill = nc.map(|n| n.via_drill as f64 / router.params.input_scale as f64).unwrap_or(0.4);
+        let trace_width = nc.map(|n| n.trace_width as f64 / router.params.input_scale as f64).unwrap_or(DEFAULT_TRACE_WIDTH_MM);
+        let via_dia = nc.map(|n| n.via_dia as f64 / router.params.input_scale as f64).unwrap_or(DEFAULT_VIA_DIAMETER_MM);
+        let via_drill = nc.map(|n| n.via_drill as f64 / router.params.input_scale as f64).unwrap_or(DEFAULT_VIA_DRILL_MM);
 
         for path in &net_solution.grid_paths {
-            let pts: Vec<Location> = path.segments.iter().cloned().collect();
+            let pts: Vec<Location> = path.segments.to_vec();
             if pts.is_empty() {
                 continue;
             }
@@ -116,19 +121,21 @@ fn main() {
                     continue;
                 }
                 
-                let x1 = (prev_loc.x() as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
-                let y1 = (prev_loc.y() as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
-                let x2 = (loc.x() as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
-                let y2 = (loc.y() as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                let x1 = (prev_loc.x as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                let y1 = (prev_loc.y as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                let x2 = (loc.x as f64) / (router.params.input_scale as f64) + router.min_x - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
+                let y2 = (loc.y as f64) / (router.params.input_scale as f64) + router.min_y - (router.params.enlarge_boundary as f64 / 2.0 / router.params.input_scale as f64);
 
-                if loc.z() != prev_loc.z() {
-                    // Via
+                if loc.z != prev_loc.z {
+                    // Via — use the actual source and destination layer names
+                    let from_layer = grid_layer_to_name.get(prev_loc.z as usize).map(|s| s.as_str()).unwrap_or("F.Cu");
+                    let to_layer = grid_layer_to_name.get(loc.z as usize).map(|s| s.as_str()).unwrap_or("B.Cu");
                     new_vias.push(PcbVia {
                         at: Some([x1, y1]),
                         size: Some(via_dia),
                         drill: Some(via_drill),
                         net: Some(net_id),
-                        layers: vec!["F.Cu".to_string(), "B.Cu".to_string()],
+                        layers: vec![from_layer.to_string(), to_layer.to_string()],
                         locked: false,
                         uuid: None,
                         drill_shape: None,
@@ -138,7 +145,7 @@ fn main() {
                     });
                 } else {
                     // Segment
-                    let layer_name = grid_layer_to_name.get(loc.z() as usize).map(|s| s.as_str()).unwrap_or("Unknown");
+                    let layer_name = grid_layer_to_name.get(loc.z as usize).map(|s| s.as_str()).unwrap_or("Unknown");
                     new_segments.push(PcbSegment {
                         start: Some([x1, y1]),
                         end: Some([x2, y2]),

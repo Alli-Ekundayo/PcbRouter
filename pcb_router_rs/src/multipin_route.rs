@@ -76,16 +76,16 @@ impl MultipinRoute {
         self.grid_paths.clear();
     }
 
-    pub fn get_routed_wirelength(&self, grid_factor: f32) -> f64 {
-        self.grid_paths.iter().map(|p| p.get_routed_wirelength(grid_factor)).sum()
+    pub fn routed_wirelength(&self, grid_factor: f32) -> f64 {
+        self.grid_paths.iter().map(|p| p.routed_wirelength(grid_factor)).sum()
     }
 
-    pub fn get_routed_num_vias(&self) -> i32 {
-        self.grid_paths.iter().map(|p| p.get_routed_num_vias()).sum()
+    pub fn routed_num_vias(&self) -> i32 {
+        self.grid_paths.iter().map(|p| p.routed_num_vias()).sum()
     }
 
-    pub fn get_routed_num_bends(&self) -> i32 {
-        self.grid_paths.iter().map(|p| p.get_routed_num_bends()).sum()
+    pub fn routed_num_bends(&self) -> i32 {
+        self.grid_paths.iter().map(|p| p.routed_num_bends()).sum()
     }
 
     pub fn grid_path_locations_to_segments(&mut self) {
@@ -96,6 +96,7 @@ impl MultipinRoute {
     }
 
     /// Set up the routing order of pins (nearest-neighbour greedy).
+    #[allow(clippy::needless_range_loop)]
     pub fn setup_grid_pins_routing_order(&mut self) {
         let n = self.grid_pins.len();
         if n == 0 {
@@ -126,11 +127,14 @@ impl MultipinRoute {
         }
 
         let mut order = vec![id1, id2];
+        let mut visited = vec![false; n];
+        visited[id1] = true;
+        visited[id2] = true;
         while order.len() < n {
             let mut best_dist = f64::MAX;
             let mut best_id = 0;
             for i in 0..n {
-                if order.contains(&i) {
+                if visited[i] {
                     continue;
                 }
                 for &already in &order {
@@ -141,6 +145,7 @@ impl MultipinRoute {
                     }
                 }
             }
+            visited[best_id] = true;
             order.push(best_id);
         }
 
@@ -180,13 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn test_get_routed_wirelength() {
+    fn test_routed_wirelength() {
         let mut mpr = MultipinRoute::new(1);
         let gp = mpr.get_new_grid_path();
         use crate::location::Location;
-        gp.segments.push_back(Location::new(0, 0, 0));
-        gp.segments.push_back(Location::new(4, 0, 0));
-        let wl = mpr.get_routed_wirelength(0.1);
+        gp.segments.push(Location::new(0, 0, 0));
+        gp.segments.push(Location::new(4, 0, 0));
+        let wl = mpr.routed_wirelength(0.1);
         assert!((wl - 0.4).abs() < 1e-5, "wl = {}", wl);
     }
 

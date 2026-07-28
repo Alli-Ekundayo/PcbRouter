@@ -76,21 +76,24 @@ impl Default for GlobalParam {
             wirelength_cost: 1.0,
             layer_change_cost: 10.0,
 
-            via_insertion_cost: 100.0,
-            trace_basic_cost: 50.0,
-            pin_obstacle_cost: 1000.0,
+            // Obstacle costs — higher values discourage routing near existing features
+            via_insertion_cost: 100.0,       // penalty for inserting a via
+            trace_basic_cost: 50.0,          // base cost per unit of trace near obstacles
+            pin_obstacle_cost: 1000.0,       // penalty for routing near pins
 
             step_via_obs_cost: 0.0,
             step_tra_obs_cost: 0.0,
 
+            // Boundary and forbidden costs
             via_touch_boundary_cost: 1000.0,
-            trace_touch_boundary_cost: 100_000.0,
+            trace_touch_boundary_cost: 100_000.0, // effectively forbids traces at boundary
             via_forbidden_cost: 2000.0,
-            obstacle_curve_param: 10_000.0,
+            obstacle_curve_param: 10_000.0,       // curvature parameter for obstacle cost function
 
-            input_scale: 10,
+            // Grid setup
+            input_scale: 10,                // grid cells per mm (10 = 0.1mm resolution)
             enlarge_boundary: 0,
-            grid_factor: 0.1,
+            grid_factor: 0.1,               // mm per grid cell (= 1/input_scale)
 
             via_under_pad: false,
             use_micro_via: true,
@@ -107,6 +110,7 @@ impl Default for GlobalParam {
             log_folder: "log".to_string(),
             verbose_level: VerboseLevel::Debug,
 
+            // Arbitrary fixed seed for deterministic routing
             seed: 1_470_295_829,
         }
     }

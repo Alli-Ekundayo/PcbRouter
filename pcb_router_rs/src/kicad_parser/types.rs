@@ -46,7 +46,7 @@ pub struct Instance {
     pub layer: String,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Pad {
     /// Parent instance reference.
     pub reference: String,
@@ -66,6 +66,22 @@ pub struct Pad {
     pub layers: Vec<String>,
     /// Parent instance absolute position – used to compute absolute pad coords.
     pub instance_position: (f64, f64),
+}
+
+impl Default for Pad {
+    fn default() -> Self {
+        Pad {
+            reference: String::new(),
+            number: String::new(),
+            pad_type: String::new(),
+            shape: String::new(),
+            position: (0.0, 0.0),
+            size: (0.0, 0.0),
+            net_id: -1, // -1 = unconnected (consistent with router's `> 0` filter)
+            layers: Vec::new(),
+            instance_position: (0.0, 0.0),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -88,7 +104,7 @@ mod tests {
     #[test]
     fn test_pad_default() {
         let p = Pad::default();
-        assert_eq!(p.net_id, 0);
+        assert_eq!(p.net_id, -1);
         assert!(p.layers.is_empty());
     }
 }

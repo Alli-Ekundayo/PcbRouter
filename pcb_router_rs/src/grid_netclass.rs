@@ -41,6 +41,7 @@ pub struct GridNetclass {
 }
 
 impl GridNetclass {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: i32,
         clearance: i32,
@@ -88,6 +89,7 @@ pub struct GridDiffPairNetclass {
 }
 
 impl GridDiffPairNetclass {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: i32,
         clearance: i32,
